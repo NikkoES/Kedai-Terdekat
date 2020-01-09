@@ -79,7 +79,7 @@ class DetailCoffeeShopActivity : AppCompatActivity() {
         Glide.with(this).load(item?.image).into(image_backdrop)
         txt_title.text = item?.name
         txt_name.text = item?.name
-      //  txt_distance.text = "0.45 km"
+        txt_distance.text = String.format("%.2f", item?.distance) + " Km"
         txt_rating.text = (Math.round((item!!.rating) * 10.0) / 10.0).toString()
         txt_description.text = item?.description
         txt_menu.text = item?.menu
