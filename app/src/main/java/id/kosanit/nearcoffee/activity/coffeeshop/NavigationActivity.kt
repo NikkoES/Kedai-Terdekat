@@ -32,6 +32,8 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import id.kosanit.nearcoffee.R
+import id.kosanit.nearcoffee.data.Constant
+import id.kosanit.nearcoffee.data.Poly
 import id.kosanit.nearcoffee.model.rute.Distance
 import id.kosanit.nearcoffee.navigation.FetchURL
 import id.kosanit.nearcoffee.navigation.TaskLoadedCallback
@@ -55,6 +57,8 @@ class NavigationActivity : AppCompatActivity(),
     internal var getDirection: Button? = null
     internal var txtDistance: TextView? = null
     private var currentPolyline: Polyline? = null
+    private var n: Int = 0
+    private var I: Int = 0
     private var mapFragment: MapFragment? = null
     private var isFirstTime = true
     private var mGoogleApiClient: GoogleApiClient? = null
@@ -65,12 +69,15 @@ class NavigationActivity : AppCompatActivity(),
     private val FASTEST_INTERVAL: Long = 2000 /* 2 sec */
     private var lat = 0.0
     private var lon = 0.0
+    private lateinit var updatedPath: Array<IntArray>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(id.kosanit.nearcoffee.R.layout.activity_navigation)
+        setContentView(R.layout.activity_navigation)
+
+        updatedPath = arrayOf()
 
         //code for getting current location
-
 
         requestMultiplePermissions()
         mGoogleApiClient = GoogleApiClient.Builder(this)
@@ -135,7 +142,7 @@ class NavigationActivity : AppCompatActivity(),
 
 
         return "https://maps.googleapis.com/maps/api/directions/$output?$parameters&key=" + getString(
-           id.kosanit.nearcoffee.R.string.google_maps_key
+            id.kosanit.nearcoffee.R.string.google_maps_key
         )
     }
 
@@ -314,14 +321,13 @@ class NavigationActivity : AppCompatActivity(),
     }
 
 
-
     override fun onLocationChanged(location: Location) {
         if (isFirstTime) {
             //code to draw path on map
-            var distance:kotlin.Double? = null
+            var distance: kotlin.Double? = null
             getDirection =
                 findViewById<Button?>(R.id.btnGetDirection)
-            txtDistance =  findViewById<TextView?>(R.id.txt_distance)
+            txtDistance = findViewById<TextView?>(R.id.txt_distance)
             getDirection!!.setOnClickListener {
                 FetchURL(this@NavigationActivity).execute(
                     getUrl(place1!!.position, place2!!.position, "driving"),
@@ -339,7 +345,8 @@ class NavigationActivity : AppCompatActivity(),
                     location.latitude,
                     location.longitude
                 )
-            ).title("My Location").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
+            ).title("My Location")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
             place2 = MarkerOptions()
                 .position(LatLng(lat, lon)).title(name)
 
@@ -349,17 +356,43 @@ class NavigationActivity : AppCompatActivity(),
 //                         results);
 //            location2 = Location.distanceBetween()
 //            location.distanceTo(location2);
-            distance = getDistance(LatLng(location.latitude,location.longitude), LatLng(lat,lon))
-            txtDistance?.setText("Distance : " +String.format("%.2f", distance) + " Km")
 
-            mapFragment =
-                fragmentManager.findFragmentById(R.id.mapNearBy) as MapFragment
-            mapFragment!!.getMapAsync(this)
-            isFirstTime = false
+            n = Poly.rows // n = rows[W]
+            I = Poly.infinity // represent INFINITY
+
+            val isNearest = nearestPathFloydWarshall(updatedPath)
+            if (isNearest) {
+                distance =
+                    getDistance(LatLng(location.latitude, location.longitude), LatLng(lat, lon))
+                txtDistance?.setText("Distance : " + String.format("%.2f", distance) + " Km")
+
+                mapFragment =
+                    fragmentManager.findFragmentById(R.id.mapNearBy) as MapFragment
+                mapFragment!!.getMapAsync(this)
+                isFirstTime = false
+            }
         }
     }
 
-    fun getDistance(
+    private fun nearestPathFloydWarshall(W: Array<IntArray>?): Boolean {
+        val dist: Array<IntArray> = W!!
+
+        if (dist.isNotEmpty()) {
+            for (k in 0 until n) {
+                for (j in 0 until n) {
+                    for (i in 0 until n) {
+                        if (dist[i][k] + dist[k][j] < dist[i][j]) {
+                            dist[i][j] = dist[i][k] + dist[k][j]
+                        }
+                    }
+                }
+            }
+        }
+
+        return Poly.nearest
+    }
+
+    private fun getDistance(
         StartP: LatLng,
         EndP: LatLng
     ): kotlin.Double {
